@@ -129,6 +129,12 @@ h3{font-size:18px;margin:22px 0 10px;color:var(--ink)}
 .fbox{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;align-items:center}
 .flinks{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:760px){.fbox{flex-direction:column;text-align:center}.flinks{justify-content:center}}
+.vis{background:rgba(124,92,255,.05);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.tog{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:0!important;margin:0 8px 6px 0;cursor:pointer}
+.tog input{position:absolute;opacity:0;width:0;height:0}
+.tog span{padding:7px 14px;border-radius:999px;border:1px solid rgba(91,61,245,.25);background:#fff;color:var(--mute);font-size:14.5px;transition:.2s}
+.tog input:checked+span{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(124,92,255,.3)}
+.tog input:focus-visible+span{outline:2px solid var(--a1);outline-offset:2px}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .thumbs img{width:92px;height:68px;object-fit:cover;border-radius:10px;cursor:zoom-in;border:1px solid var(--line);transition:transform .25s,box-shadow .25s}
 .thumbs img:hover{transform:scale(1.06);box-shadow:0 6px 16px rgba(124,92,255,.25)}
@@ -297,7 +303,7 @@ function row(i){return `<div class="card item">${i.imgs[0]?`<img src="${i.imgs[0
  <div class="meta">${thDate(i.date)} · ${esc(i.org||'')}${i.place?' · '+esc(i.place):''}${i.hours?' · '+i.hours+' ชม.':''}</div>
  ${i.detail?`<div class="meta">${linkify(i.detail)}</div>`:''}
  <span class="tag gold">${esc(i.type)}</span>${i.ind.map(k=>`<span class="tag">${esc(k)}</span>`).join('')}${i.pub?'':'<span class="tag lock">ส่วนตัว</span>'}
- ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">📎 ${esc(d.n)}</a>`).join('')}
+ ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${owner&&!i.pubDocs?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
  ${owner?`<div class="noprint" style="margin-top:6px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button> <button class="btn ghost sm" onclick="delItem(${i.id})">ลบ</button></div>`:''}</div></div>`}
 function linkify(t){return esc(t).replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
 
@@ -364,7 +370,7 @@ P.train=()=>{let v=visible().filter(i=>i.type==='อบรม');const all=v;
  return `<h2>ประวัติการอบรม</h2>
  ${owner?'<div class="filters noprint"><button class="btn ghost" onclick="print()">พิมพ์</button></div>':''}
  <div class="tw"><table><tr><th>วันที่</th><th>หลักสูตร / เรื่อง</th><th>หน่วยงานผู้จัด</th><th>สถานที่</th><th>ชม.</th></tr>
- ${v.map(i=>`<tr><td>${thDate(i.date)}</td><td>${esc(i.title)}${i.imgs&&i.imgs.length?` <a href="#" onclick="zoom('${i.imgs[0]}');return false" title="ดูเกียรติบัตร">🖼️</a>`:''}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td><td>${i.hours||'-'}</td></tr>`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
+ ${v.map(i=>`<tr><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${i.imgs&&i.imgs.length?`<div class="thumbs">${i.imgs.map(s=>`<img src="${s}" alt="ภาพการอบรม" loading="lazy" onclick="zoom(this.src)">`).join('')}</div>`:''}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td><td>${i.hours||'-'}</td></tr>`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
  <tr><th colspan="4" style="text-align:right">รวม ${v.length} รายการ</th><th>${hrs}</th></tr></table></div>`};
 
 P.meet=()=>{let v=visible().filter(i=>i.type==='ประชุม');const all=v;
@@ -418,7 +424,7 @@ P.research=()=>{const v=items.filter(i=>(owner||i.pub)&&i.type==='วิจั�
  ${i.detail?`<div style="margin:4px 0">${linkify(i.detail)}</div>`:''}
  ${(i.detail||'').match(/https?:\/\/\S+/)?`<a class="btn sm" style="display:inline-block;text-decoration:none;margin:4px 0" href="${esc(i.detail.match(/https?:\/\/\S+/)[0])}" target="_blank" rel="noopener">📖 อ่านงานวิจัย</a><br>`:''}
  ${i.ind.map(k=>`<span class="tag" title="${esc(IND_NAME[k]||'')}">${esc(k)} ${esc(IND_NAME[k]||'')}</span>`).join('')}
- ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">📎 ${esc(d.n)}</a>`).join('')}
+ ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${owner&&!i.pubDocs?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
  ${owner?`<div class="noprint" style="margin-top:6px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button></div>`:''}</div></div>`).join('')||'<div class="meta">ยังไม่มีงานวิจัย</div>'}`};
 
 P.act=()=>{let v=visible().filter(i=>i.type==='กิจกรรม'&&i.date);
@@ -460,10 +466,15 @@ P.add=()=>{const e=editing||{title:'',type:'อบรม',date:new Date().toISOS
  <label class="full">รายละเอียด / ลิงก์ไฟล์ใหญ่ใน OneDrive<textarea name="detail" rows="3">${esc(e.detail)}</textarea></label>
  <label class="full">แนบรูปหรือเอกสาร PDF/Word/PowerPoint (เลือกหลายไฟล์ได้)<input type="file" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" multiple onchange="addPics(this)"></label>
  <div class="full" id="thumbs"></div>
- <label class="full" style="flex-direction:row;gap:8px;color:var(--ink)"><input type="checkbox" name="pub"${e.pub?' checked':''}> แสดงให้ผู้เยี่ยมชมเห็น</label>
+ <div class="full vis"><div class="meta" style="margin-bottom:6px">ผู้เยี่ยมชมเห็นอะไรได้บ้าง</div>
+  <label class="tog"><input type="checkbox" name="pub"${e.pub?' checked':''} onchange="visSync()"><span>🌐 แสดงรายการนี้</span></label>
+  <label class="tog"><input type="checkbox" name="pubImgs"${e.pubImgs!==false?' checked':''}><span>🖼️ ให้เห็นรูป</span></label>
+  <label class="tog"><input type="checkbox" name="pubDocs"${e.pubDocs?' checked':''}><span>📎 ให้เห็นไฟล์แนบ</span></label>
+  <div class="meta" style="margin-top:6px">ไฟล์แนบ (PDF, Word, PowerPoint) ซ่อนไว้เป็นค่าเริ่มต้น ครูเห็นเสมอเมื่อเข้าโหมดเจ้าของ</div></div>
  <div class="full meta" style="margin-top:-6px">💡 รูปที่เพจหรือเว็บโรงเรียนเผยแพร่แล้วแสดงได้ตามปกติ · ถ้าเป็นรูปที่ถ่ายเองและเห็นหน้านักเรียนชัด เช่น เยี่ยมบ้าน ควรเอาเครื่องหมายถูกออก (PDPA)</div>
  <div class="full"><button class="btn">บันทึก</button> ${editing?'<button type="button" class="btn ghost" onclick="go(\'home\')">ยกเลิก</button>':''}</div>
  </form></div>`};
+function visSync(){const f=document.querySelector('form.add');if(!f)return;const on=f.pub.checked;['pubImgs','pubDocs'].forEach(n=>{f[n].closest('.tog').style.opacity=on?1:.45})}
 function hoursShow(t){const b=document.getElementById('hbox');if(b)b.style.display=(t==='อบรม')?'':'none'}
 function drawThumbs(){const t=document.getElementById('thumbs');if(t)t.innerHTML=pending.map((s,k)=>`<span style="display:inline-block;margin:0 8px 8px 0;text-align:center"><img src="${s}" style="height:70px;border-radius:6px;display:block;${k?'':'outline:3px solid var(--gold)'}" alt="">${k?`<a href="#" onclick="pending.unshift(pending.splice(${k},1)[0]);drawThumbs();return false">ตั้งเป็นปก</a> · `:'<b style="color:var(--gold)">★ ปก</b> · '}<a href="#" onclick="pending.splice(${k},1);drawThumbs();return false">ลบ</a></span>`).join('')+
  pendingDocs.map((d,k)=>`<div>📎 ${esc(d.n)} <a href="#" onclick="pendingDocs.splice(${k},1);drawThumbs();return false">ลบ</a></div>`).join('')}
@@ -476,7 +487,7 @@ function addPics(inp){[...inp.files].forEach(f=>{const r=new FileReader();
 async function saveItem(ev){ev.preventDefault();const fd=new FormData(ev.target),btn=ev.target.querySelector('button.btn');
  const o={id:editing?editing.id:Date.now(),title:fd.get('title').trim(),type:fd.get('type'),date:fd.get('date'),ind:fd.getAll('ind'),
   hours:fd.get('type')==='อบรม'?(+fd.get('hours')||0):0,detail:fd.get('detail').trim(),group:fd.get('group'),ptype:fd.get('ptype'),
-  place:fd.get('place').trim(),org:fd.get('org').trim(),imgs:pending,pub:!!fd.get('pub')};
+  place:fd.get('place').trim(),org:fd.get('org').trim(),imgs:pending,pub:!!fd.get('pub'),pubImgs:!!fd.get('pubImgs'),pubDocs:!!fd.get('pubDocs')};
  try{
   if(API_URL){
    btn.disabled=true;const total=pending.filter(s=>s.startsWith('data:')).length+pendingDocs.filter(d=>d.data).length;let n=0;
@@ -541,7 +552,7 @@ async function bulkImport(inp){const log=t=>{const e=document.getElementById('bu
 
 function render(){readFilters();drawNav();const m=document.getElementById('main');
  m.innerHTML=(busy?`<div class="banner">${busy}</div>`:'')+(['train','meet','award','act','work'].includes(page)?yearBar():'')+P[page]();
- if(page==='add'){drawThumbs();hoursShow(document.querySelector('[name=type]').value)}
+ if(page==='add'){drawThumbs();hoursShow(document.querySelector('[name=type]').value);visSync()}
  m.querySelectorAll('.card,.award,.stat,.hero,h2').forEach((e,i)=>{e.style.setProperty('--d',Math.min(i,14)*60+'ms');e.classList.add('rv')});
  countUp();typeLoop();slStart()}
 
