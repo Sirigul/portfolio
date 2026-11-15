@@ -135,7 +135,21 @@ h3{font-size:18px;margin:22px 0 10px;color:var(--ink)}
 .tog span{padding:7px 14px;border-radius:999px;border:1px solid rgba(91,61,245,.25);background:#fff;color:var(--mute);font-size:14.5px;transition:.2s}
 .tog input:checked+span{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(124,92,255,.3)}
 .tog input:focus-visible+span{outline:2px solid var(--a1);outline-offset:2px}
-.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.thumbs{display:flex;flex-wrap:nowrap;gap:8px;margin-top:2px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.thumbs img{flex:none}
+.clipbox{margin:4px 0}
+.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.clip.open{display:block;-webkit-line-clamp:unset}
+.rm{background:none;border:0;padding:2px 0;color:#6d4cff;font:600 13.5px "IBM Plex Sans Thai",sans-serif;cursor:pointer}
+.rm:hover{text-decoration:underline}
+.sl-cap .clip{-webkit-line-clamp:2}
+@media print{.clip{display:block;-webkit-line-clamp:unset}}
+.thumbs .more{flex:none;width:92px;height:68px;border-radius:10px;border:0;padding:0;cursor:pointer;background-size:cover;background-position:center;position:relative;overflow:hidden}
+.thumbs .more span{position:absolute;inset:0;display:grid;place-items:center;background:rgba(76,29,149,.62);color:#fff;font:700 20px Prompt,sans-serif;transition:background .2s}
+.thumbs .more:hover span{background:rgba(124,92,255,.75)}
+tr.hasimg td{border-bottom:0}
+tr.imgrow td{padding-top:0}
+tr.imgrow:hover td{background:transparent}
 .thumbs img{width:92px;height:68px;object-fit:cover;border-radius:10px;cursor:zoom-in;border:1px solid var(--line);transition:transform .25s,box-shadow .25s}
 .thumbs img:hover{transform:scale(1.06);box-shadow:0 6px 16px rgba(124,92,255,.25)}
 @media print{.thumbs img{width:120px;height:90px}}
@@ -301,10 +315,16 @@ addEventListener('keydown',e=>{if(document.getElementById('viewer').style.displa
 function row(i){return `<div class="card item">${i.imgs[0]?`<img src="${i.imgs[0]}" onclick="zoom(this.src)" alt="">`:''}
  <div style="flex:1"><div class="t">${esc(i.title)}</div>
  <div class="meta">${thDate(i.date)} · ${esc(i.org||'')}${i.place?' · '+esc(i.place):''}${i.hours?' · '+i.hours+' ชม.':''}</div>
- ${i.detail?`<div class="meta">${linkify(i.detail)}</div>`:''}
+ ${clip(linkify(i.detail),i.detail,'meta')}
  <span class="tag gold">${esc(i.type)}</span>${i.ind.map(k=>`<span class="tag">${esc(k)}</span>`).join('')}${i.pub?'':'<span class="tag lock">ส่วนตัว</span>'}
  ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${owner&&!i.pubDocs?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
  ${owner?`<div class="noprint" style="margin-top:6px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button> <button class="btn ghost sm" onclick="delItem(${i.id})">ลบ</button></div>`:''}</div></div>`}
+/* ข้อความยาว: แสดง 2 บรรทัด แล้วมีปุ่ม "อ่านเพิ่มเติม" */
+function clip(html,raw,cls){if(!raw)return '';
+ return `<div class="clipbox ${cls}"><div class="clip">${html}</div><button class="rm noprint" hidden onclick="clipToggle(this)">อ่านเพิ่มเติม ▾</button></div>`}
+function clipCheck(){document.querySelectorAll('.clip:not(.open)').forEach(c=>{const b=c.nextElementSibling;if(b)b.hidden=c.scrollHeight<=c.clientHeight+2})}
+addEventListener('resize',()=>{clearTimeout(clipCheck.t);clipCheck.t=setTimeout(clipCheck,200)});
+function clipToggle(b){const c=b.previousElementSibling,o=c.classList.toggle('open');b.textContent=o?'ย่อ ▴':'อ่านเพิ่มเติม ▾'}
 function linkify(t){return esc(t).replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
 
 /* ---------- เมนู ---------- */
@@ -364,13 +384,16 @@ P.home=()=>{const all=items.filter(i=>owner||i.pub),v=visible(),cnt=t=>all.filte
  </div>
  <h3>⚡ ความเคลื่อนไหวล่าสุด</h3>${yearBar()}${v.slice(0,6).map(row).join('')||'<div class="meta">ยังไม่มีรายการในปีนี้</div>'}`};
 
+/* แถวรูปเต็มความกว้างตาราง เรียงข้างกัน เลื่อนซ้ายขวาได้ถ้ารูปเยอะ */
+function imgRow(i,cols,alt){if(!i.imgs||!i.imgs.length)return '';const more=i.imgs.length-3;
+ return `<tr class="imgrow"><td colspan="${cols}"><div class="thumbs">${i.imgs.slice(0,3).map(s=>`<img src="${s}" alt="${alt}" loading="lazy" onclick="zoom(this.src)">`).join('')}${more>0?`<button class="more" onclick="zoom('${i.imgs[3]}')" aria-label="ดูรูปเพิ่มอีก ${more} รูป" style="background-image:url('${i.imgs[3]}')"><span>+${more}</span></button>`:''}</div></td></tr>`}
 P.train=()=>{let v=visible().filter(i=>i.type==='อบรม');const all=v;
  if(F.ty)v=v.filter(i=>String(acYear(i.date))===F.ty);
  const hrs=v.reduce((s,i)=>s+(+i.hours||0),0);
  return `<h2>ประวัติการอบรม</h2>
  ${owner?'<div class="filters noprint"><button class="btn ghost" onclick="print()">พิมพ์</button></div>':''}
  <div class="tw"><table><tr><th>วันที่</th><th>หลักสูตร / เรื่อง</th><th>หน่วยงานผู้จัด</th><th>สถานที่</th><th>ชม.</th></tr>
- ${v.map(i=>`<tr><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${i.imgs&&i.imgs.length?`<div class="thumbs">${i.imgs.map(s=>`<img src="${s}" alt="ภาพการอบรม" loading="lazy" onclick="zoom(this.src)">`).join('')}</div>`:''}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td><td>${i.hours||'-'}</td></tr>`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
+ ${v.map(i=>`<tr${i.imgs&&i.imgs.length?' class="hasimg"':''}><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td><td>${i.hours||'-'}</td></tr>${imgRow(i,5,'ภาพการอบรม')}`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
  <tr><th colspan="4" style="text-align:right">รวม ${v.length} รายการ</th><th>${hrs}</th></tr></table></div>`};
 
 P.meet=()=>{let v=visible().filter(i=>i.type==='ประชุม');const all=v;
@@ -380,7 +403,7 @@ P.meet=()=>{let v=visible().filter(i=>i.type==='ประชุม');const all=v
  <select id="mg" onchange="render()"><option value="">ทุกกลุ่มบริหาร</option>${opts(GROUPS,F.mg)}</select>
  ${owner?'<button class="btn ghost" onclick="print()">พิมพ์</button>':''}</div>
  <div class="tw"><table><tr><th>วันที่</th><th>เรื่องประชุม</th><th>กลุ่มบริหาร</th><th>หน่วยงานผู้จัด</th><th>สถานที่</th></tr>
- ${v.map(i=>`<tr><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${i.detail?`<div class="meta">${linkify(i.detail)}</div>`:''}${i.imgs&&i.imgs.length?`<div class="thumbs">${i.imgs.map(s=>`<img src="${s}" alt="ภาพประกอบการประชุม" loading="lazy" onclick="zoom(this.src)">`).join('')}</div>`:''}</td><td>${esc(i.group)}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td></tr>`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
+ ${v.map(i=>`<tr${i.imgs&&i.imgs.length?' class="hasimg"':''}><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${clip(linkify(i.detail),i.detail,'meta')}</td><td>${esc(i.group)}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td></tr>${imgRow(i,5,'ภาพประกอบการประชุม')}`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
  <tr><th colspan="5" style="text-align:right">รวม ${v.length} ครั้ง</th></tr></table></div>`};
 
 P.award=()=>{let v=visible().filter(i=>i.type==='รางวัล'||i.type==='เกียรติบัตร');const all=v;
@@ -413,7 +436,7 @@ function slStart(){slI=0;slHold=false;const el=document.getElementById('slider')
 P.news=()=>{const v=newsList();   // ข่าวแสดงทุกปีเสมอ
  return `<h2>ข่าวและภาพกิจกรรม</h2>${owner?'<div class="meta noprint" style="margin-bottom:10px">เพิ่มข่าว: กด + เพิ่มผลงาน → ประเภท "ข่าว" · ใส่ลิงก์ข่าวต้นฉบับในช่องรายละเอียดได้</div>':''}
  ${v.map(i=>`<div class="card"><div class="meta">📰 ${thDate(i.date)}${i.org?' · '+esc(i.org):''}</div><div class="t" style="font-weight:600;font-size:18px">${esc(i.title)}</div>
- ${noUrl(i.detail)?`<div style="margin:4px 0">${esc(noUrl(i.detail))}</div>`:''}${urlOf(i.detail)?`<a class="btn sm" href="${esc(urlOf(i.detail))}" target="_blank" rel="noopener">อ่านข่าวต้นฉบับ ↗</a>`:''}
+ ${clip(esc(noUrl(i.detail)),noUrl(i.detail),'')}${urlOf(i.detail)?`<a class="btn sm" href="${esc(urlOf(i.detail))}" target="_blank" rel="noopener">อ่านข่าวต้นฉบับ ↗</a>`:''}
  ${i.imgs.length?`<div class="gal">${i.imgs.map(s=>`<img src="${s}" alt="" onclick="zoom(this.src)">`).join('')}</div>`:''}
  ${owner?`<div class="noprint" style="margin-top:8px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button> <button class="btn ghost sm" onclick="delItem(${i.id})">ลบ</button></div>`:''}</div>`).join('')||'<div class="meta">ยังไม่มีข่าว</div>'}`};
 
@@ -421,7 +444,7 @@ P.research=()=>{const v=items.filter(i=>(owner||i.pub)&&i.type==='วิจั�
  return `<h2>งานวิจัย</h2><div class="meta" style="margin-bottom:10px">วิจัยในชั้นเรียนและงานพัฒนาการเรียนรู้ทุกปี (${v.length} เรื่อง)</div>
  ${v.map(i=>`<div class="card item">${i.imgs[0]?`<img src="${i.imgs[0]}" onclick="zoom(this.src)" alt="">`:'<div style="font-size:34px;flex:none">📘</div>'}
  <div style="flex:1"><div class="meta">${i.date?'ปีการศึกษา '+acYear(i.date):'ยังไม่ระบุวันที่'}</div><div class="t">${esc(i.title)}</div>
- ${i.detail?`<div style="margin:4px 0">${linkify(i.detail)}</div>`:''}
+ ${clip(linkify(i.detail),i.detail,'')}
  ${(i.detail||'').match(/https?:\/\/\S+/)?`<a class="btn sm" style="display:inline-block;text-decoration:none;margin:4px 0" href="${esc(i.detail.match(/https?:\/\/\S+/)[0])}" target="_blank" rel="noopener">📖 อ่านงานวิจัย</a><br>`:''}
  ${i.ind.map(k=>`<span class="tag" title="${esc(IND_NAME[k]||'')}">${esc(k)} ${esc(IND_NAME[k]||'')}</span>`).join('')}
  ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${owner&&!i.pubDocs?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
@@ -554,7 +577,7 @@ function render(){readFilters();drawNav();const m=document.getElementById('main'
  m.innerHTML=(busy?`<div class="banner">${busy}</div>`:'')+(['train','meet','award','act','work'].includes(page)?yearBar():'')+P[page]();
  if(page==='add'){drawThumbs();hoursShow(document.querySelector('[name=type]').value);visSync()}
  m.querySelectorAll('.card,.award,.stat,.hero,h2').forEach((e,i)=>{e.style.setProperty('--d',Math.min(i,14)*60+'ms');e.classList.add('rv')});
- countUp();typeLoop();slStart()}
+ countUp();typeLoop();slStart();clipCheck();setTimeout(clipCheck,700)}
 
 /* ---------- ลูกเล่นเคลื่อนไหว ---------- */
 const CALM=matchMedia('(prefers-reduced-motion: reduce)').matches;
