@@ -137,6 +137,11 @@ h3{font-size:18px;margin:22px 0 10px;color:var(--ink)}
 .tog input:focus-visible+span{outline:2px solid var(--a1);outline-offset:2px}
 .thumbs{display:flex;flex-wrap:nowrap;gap:8px;margin-top:2px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
 .thumbs img{flex:none}
+#backrep{position:fixed;right:18px;bottom:18px;z-index:25;box-shadow:0 10px 28px rgba(124,92,255,.45);padding:12px 18px;border-radius:999px}
+.sidejump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;position:sticky;top:70px;z-index:5;background:rgba(246,247,255,.9);backdrop-filter:blur(8px);padding:8px 0}
+.sidehead{scroll-margin-top:140px}
+@media(max-width:760px){.sidejump{top:96px}.sidehead{scroll-margin-top:200px}#backrep{right:12px;bottom:12px}}
+.tag.ord{background:rgba(6,182,212,.12);color:#0e7490}
 .clipbox{margin:4px 0}
 .clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .clip.open{display:block;-webkit-line-clamp:unset}
@@ -271,14 +276,14 @@ const IND_NAME={};IND.forEach(g=>g.items.forEach(([k,n])=>IND_NAME[k]=n));
 const SAMPLE=[];
 const API_URL='https://script.google.com/macros/s/AKfycbwgQp7Ujfvy4xZv43Ol-8ay_3Q9v8zBOsEBqVlaK6mTKvd3i78oM30WdTMTQE1vxDcX/exec';   // วาง URL เว็บแอปของ Apps Script ที่นี่ (ว่าง = โหมดทดลอง เก็บในเครื่อง)
 const KEY='portfolio-demo-v2';
-let items=[],owner=false,page='home',pin='',busy='';
+let items=[],owner=false,evaluator=false,page='home',pin='',busy='';
 if(!API_URL){let s=null;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}items=Array.isArray(s)?s:SAMPLE}
 const save=()=>{if(API_URL)return;try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){alert('พื้นที่ทดลองในเครื่องเต็ม (รูปมากเกินไป)')}};
 async function api(body){const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
  const j=await r.json();if(!j.ok)throw new Error(j.error||'เกิดข้อผิดพลาด');return j}
 async function loadItems(){if(!API_URL)return;busy='กำลังโหลดข้อมูล…';render();
- try{if(owner)items=(await api({action:'list',pin})).items;else{const j=await(await fetch(API_URL)).json();if(!j.ok)throw new Error(j.error);items=j.items}}
- catch(e){alert('โหลดข้อมูลไม่ได้: '+e.message);if(owner){owner=false;pin='';try{sessionStorage.removeItem('pf-pin')}catch(x){}}}busy='';render()}
+ try{if(owner||evaluator){const j=await api({action:'list',pin});items=j.items;owner=j.role==='owner';evaluator=j.role==='eval';if(evaluator&&page==='home')page='eval'}else{const j=await(await fetch(API_URL)).json();if(!j.ok)throw new Error(j.error);items=j.items}}
+ catch(e){alert('โหลดข้อมูลไม่ได้: '+e.message);if(owner||evaluator){owner=false;evaluator=false;pin='';try{sessionStorage.removeItem('pf-pin')}catch(x){}}}busy='';render()}
 function seed(){if(!confirm('นำเข้าข้อมูลเริ่มต้น '+SAMPLE.length+' รายการ?'))return;busy='กำลังนำเข้า…';render();
  api({action:'saveMany',pin,items:SAMPLE}).then(j=>{items=j.items}).catch(e=>alert(e.message)).finally(()=>{busy='';render()})}
 
@@ -292,8 +297,8 @@ function round(d){if(!d)return '';const m=mon(d),y=be(d);if(m>=10)return (y+1)+'
 function roundLabel(k){const[fy,r]=k.split('-');const a=String(fy-1).slice(2),b=String(fy).slice(2);
  return 'ปีงบ '+fy+' ครั้งที่ '+r+(r=='1'?' (1 ต.ค. '+a+' – 31 มี.ค. '+b+')':' (1 เม.ย. '+b+' – 30 ก.ย. '+b+')')}
 const NOWY=String(acYear(new Date().toISOString().slice(0,10)));let YEAR=NOWY;   // เปิดมาแสดงปีการศึกษาปัจจุบัน
-const visible=()=>items.filter(i=>(owner||i.pub)&&(YEAR==='all'||(YEAR==='none'?!i.date:String(acYear(i.date))===YEAR))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-function yearBar(){const mine=items.filter(i=>owner||i.pub),ys=uniq([NOWY,...mine.filter(i=>i.date).map(i=>String(acYear(i.date)))]).sort().reverse();
+const visible=()=>items.filter(i=>(owner||evaluator||i.pub)&&(YEAR==='all'||(YEAR==='none'?!i.date:String(acYear(i.date))===YEAR))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+function yearBar(){const mine=items.filter(i=>owner||evaluator||i.pub),ys=uniq([NOWY,...mine.filter(i=>i.date).map(i=>String(acYear(i.date)))]).sort().reverse();
  return `<div class="filters noprint" style="align-items:center"><b>ปีการศึกษา</b><select onchange="YEAR=this.value;render()"><option value="all"${YEAR==='all'?' selected':''}>ทุกปี</option>${ys.map(y=>`<option${y===YEAR?' selected':''}>${y}</option>`).join('')}${mine.some(i=>!i.date)?`<option value="none"${YEAR==='none'?' selected':''}>ยังไม่ระบุวันที่</option>`:''}</select></div>`}
 const opts=(arr,sel)=>arr.map(v=>`<option${v===sel?' selected':''}>${esc(v)}</option>`).join('');
 const uniq=a=>[...new Set(a)];
@@ -317,7 +322,7 @@ function row(i){return `<div class="card item">${i.imgs[0]?`<img src="${i.imgs[0
  <div class="meta">${thDate(i.date)} · ${esc(i.org||'')}${i.place?' · '+esc(i.place):''}${i.hours?' · '+i.hours+' ชม.':''}</div>
  ${clip(linkify(i.detail),i.detail,'meta')}
  <span class="tag gold">${esc(i.type)}</span>${i.ind.map(k=>`<span class="tag">${esc(k)}</span>`).join('')}${i.pub?'':'<span class="tag lock">ส่วนตัว</span>'}
- ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${owner&&!i.pubDocs?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
+ ${fileLinks(i)}
  ${owner?`<div class="noprint" style="margin-top:6px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button> <button class="btn ghost sm" onclick="delItem(${i.id})">ลบ</button></div>`:''}</div></div>`}
 /* ข้อความยาว: แสดง 2 บรรทัด แล้วมีปุ่ม "อ่านเพิ่มเติม" */
 function clip(html,raw,cls){if(!raw)return '';
@@ -325,6 +330,9 @@ function clip(html,raw,cls){if(!raw)return '';
 function clipCheck(){document.querySelectorAll('.clip:not(.open)').forEach(c=>{const b=c.nextElementSibling;if(b)b.hidden=c.scrollHeight<=c.clientHeight+2})}
 addEventListener('resize',()=>{clearTimeout(clipCheck.t);clipCheck.t=setTimeout(clipCheck,200)});
 function clipToggle(b){const c=b.previousElementSibling,o=c.classList.toggle('open');b.textContent=o?'ย่อ ▴':'อ่านเพิ่มเติม ▾'}
+/* ลิงก์คำสั่ง + ไฟล์แนบ: ผู้เยี่ยมชมได้รับเฉพาะที่ครูเปิดไว้ (กรองที่ฝั่ง Google แล้ว) */
+function fileLinks(i){const lock=(owner||evaluator)&&!i.pubDocs,ok=u=>/^https?:\/\//i.test(u||'');
+ return (ok(i.orderUrl)?`<a class="tag ord" href="${esc(i.orderUrl)}" target="_blank" rel="noopener">${lock?'🔒':'📄'} คำสั่ง</a>`:'')+(i.docs||[]).filter(d=>ok(d.u)).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${lock?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
 function linkify(t){return esc(t).replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
 
 /* ---------- เมนู ---------- */
@@ -332,21 +340,21 @@ const MENU=[['home','หน้าแรก'],['news','ข่าว'],['train','�
 const OWN=[['add','+ เพิ่มผลงาน'],['eval','สรุปประเมิน'],['bulk','นำเข้าชุดใหญ่']];
 function drawNav(){document.getElementById('nav').innerHTML=
  MENU.map(([k,n])=>`<button class="${page===k?'on':''}" onclick="go('${k}')">${n}</button>`).join('')+
- (owner?OWN.map(([k,n])=>`<button class="own ${page===k?'on':''}" onclick="go('${k}')">${n}</button>`).join(''):'')+
- `<button class="own" onclick="toggleOwner()">${owner?'ออกจากโหมดเจ้าของ':'🔒 เจ้าของ'}</button>`}
+ (owner?OWN:evaluator?[['eval','📋 สรุปตามตัวชี้วัด']]:[]).map(([k,n])=>`<button class="own ${page===k?'on':''}" onclick="go('${k}')">${n}</button>`).join('')+
+ `<button class="own" onclick="toggleOwner()">${owner?'ออกจากโหมดเจ้าของ':evaluator?'ออกจากโหมดผู้ประเมิน':'🔒 เข้าสู่ระบบ'}</button>`}
 function go(p){page=p;editing=null;render();scrollTo(0,0)}
 function toggleOwner(){
- if(owner){owner=false;pin='';try{sessionStorage.removeItem('pf-pin')}catch(x){}if(['add','eval','bulk'].includes(page))page='home';API_URL?loadItems():render();return}
+ if(owner||evaluator){owner=false;evaluator=false;pin='';try{sessionStorage.removeItem('pf-pin')}catch(x){}if(['add','eval','bulk'].includes(page))page='home';API_URL?loadItems():render();return}
  if(!API_URL){owner=true;render();return}
  page='login';render()}
 async function doLogin(f){const p=f.pin.value;busy='กำลังตรวจ PIN…';render();
- try{items=(await api({action:'list',pin:p})).items;pin=p;owner=true;page='home';try{sessionStorage.setItem('pf-pin',p)}catch(x){}}catch(e){alert(e.message)}busy='';render()}
+ try{const j=await api({action:'list',pin:p});items=j.items;pin=p;owner=j.role!=='eval';evaluator=j.role==='eval';page=evaluator?'eval':'home';try{sessionStorage.setItem('pf-pin',p)}catch(x){}}catch(e){alert(e.message)}busy='';render()}
 
 /* ---------- หน้าต่าง ๆ ---------- */
 const P={};
-P.login=()=>`<h2>เข้าสู่โหมดเจ้าของ</h2><div class="card"><form onsubmit="doLogin(this);return false">
- <label>PIN <input type="password" name="pin" inputmode="numeric" autocomplete="off" required></label> <button class="btn">เข้าใช้</button></form></div>`;
-P.home=()=>{const all=items.filter(i=>owner||i.pub),v=visible(),cnt=t=>all.filter(i=>t.includes(i.type)).length;
+P.login=()=>`<h2>เข้าสู่ระบบ</h2><div class="meta" style="margin-bottom:10px">ครูใช้ PIN ของครู · ผู้ประเมินใช้รหัสผู้ประเมิน (ดูได้อย่างเดียว)</div><div class="card"><form onsubmit="doLogin(this);return false">
+ <label>รหัส <input type="password" name="pin" autocomplete="off" required></label> <button class="btn">เข้าใช้</button></form></div>`;
+P.home=()=>{const all=items.filter(i=>owner||evaluator||i.pub),v=visible(),cnt=t=>all.filter(i=>t.includes(i.type)).length;
  const hrs=all.filter(i=>i.type==='อบรม').reduce((s,i)=>s+(+i.hours||0),0),yrs=Math.floor((Date.now()-new Date('2018-11-19'))/31557600000);
  return `${API_URL?'':'<div class="banner">โหมดทดลอง: ข้อมูลเก็บในเครื่องนี้เท่านั้น ยังไม่ได้เชื่อม Google Drive</div>'}
  ${API_URL&&owner&&!items.length&&!busy&&SAMPLE.length?'<div class="card">ยังไม่มีข้อมูลใน Google Sheet <button class="btn" onclick="seed()">นำเข้าข้อมูลเริ่มต้น '+SAMPLE.length+' รายการ</button></div>':''}
@@ -391,9 +399,9 @@ P.train=()=>{let v=visible().filter(i=>i.type==='อบรม');const all=v;
  if(F.ty)v=v.filter(i=>String(acYear(i.date))===F.ty);
  const hrs=v.reduce((s,i)=>s+(+i.hours||0),0);
  return `<h2>ประวัติการอบรม</h2>
- ${owner?'<div class="filters noprint"><button class="btn ghost" onclick="print()">พิมพ์</button></div>':''}
+ ${owner||evaluator?'<div class="filters noprint"><button class="btn ghost" onclick="print()">พิมพ์</button></div>':''}
  <div class="tw"><table><tr><th>วันที่</th><th>หลักสูตร / เรื่อง</th><th>หน่วยงานผู้จัด</th><th>สถานที่</th><th>ชม.</th></tr>
- ${v.map(i=>`<tr${i.imgs&&i.imgs.length?' class="hasimg"':''}><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td><td>${i.hours||'-'}</td></tr>${imgRow(i,5,'ภาพการอบรม')}`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
+ ${v.map(i=>`<tr${i.imgs&&i.imgs.length?' class="hasimg"':''}><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${fileLinks(i)}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td><td>${i.hours||'-'}</td></tr>${imgRow(i,5,'ภาพการอบรม')}`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
  <tr><th colspan="4" style="text-align:right">รวม ${v.length} รายการ</th><th>${hrs}</th></tr></table></div>`};
 
 P.meet=()=>{let v=visible().filter(i=>i.type==='ประชุม');const all=v;
@@ -401,9 +409,9 @@ P.meet=()=>{let v=visible().filter(i=>i.type==='ประชุม');const all=v
  return `<h2>บันทึกการประชุม</h2>
  <div class="filters noprint"><label>เดือน <input type="month" id="mm" value="${F.mm||''}" onchange="render()"></label>
  <select id="mg" onchange="render()"><option value="">ทุกกลุ่มบริหาร</option>${opts(GROUPS,F.mg)}</select>
- ${owner?'<button class="btn ghost" onclick="print()">พิมพ์</button>':''}</div>
+ ${owner||evaluator?'<button class="btn ghost" onclick="print()">พิมพ์</button>':''}</div>
  <div class="tw"><table><tr><th>วันที่</th><th>เรื่องประชุม</th><th>กลุ่มบริหาร</th><th>หน่วยงานผู้จัด</th><th>สถานที่</th></tr>
- ${v.map(i=>`<tr${i.imgs&&i.imgs.length?' class="hasimg"':''}><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${clip(linkify(i.detail),i.detail,'meta')}</td><td>${esc(i.group)}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td></tr>${imgRow(i,5,'ภาพประกอบการประชุม')}`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
+ ${v.map(i=>`<tr${i.imgs&&i.imgs.length?' class="hasimg"':''}><td>${thDate(i.date)}</td><td>${esc(i.title)}${owner?` <button class="btn ghost sm noprint" onclick="editItem(${i.id})">แก้ไข</button>`:''}${fileLinks(i)}${clip(linkify(i.detail),i.detail,'meta')}</td><td>${esc(i.group)}</td><td>${esc(i.org)}</td><td>${esc(i.place||i.ptype)}</td></tr>${imgRow(i,5,'ภาพประกอบการประชุม')}`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}
  <tr><th colspan="5" style="text-align:right">รวม ${v.length} ครั้ง</th></tr></table></div>`};
 
 P.award=()=>{let v=visible().filter(i=>i.type==='รางวัล'||i.type==='เกียรติบัตร');const all=v;
@@ -416,7 +424,7 @@ P.award=()=>{let v=visible().filter(i=>i.type==='รางวัล'||i.type==='
 /* ---------- ข่าว ---------- */
 const urlOf=t=>((t||'').match(/https?:\/\/\S+/)||[''])[0];
 const noUrl=t=>(t||'').replace(/https?:\/\/\S+/g,'').trim();
-const newsList=()=>items.filter(i=>(owner||i.pub)&&i.type==='ข่าว').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+const newsList=()=>items.filter(i=>(owner||evaluator||i.pub)&&i.type==='ข่าว').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 function newsSlider(){const n=newsList().slice(0,10);
  if(!n.length)return owner?`<div class="card noprint">📰 ยังไม่มีข่าว · กด <b>+ เพิ่มผลงาน</b> แล้วเลือกประเภท <b>ข่าว</b> แนบรูป ข่าวจะขึ้นเป็นสไลด์ตรงนี้</div>`:'';
  return `<section class="slider noprint" id="slider" onmouseenter="slPause(1)" onmouseleave="slPause(0)">
@@ -440,14 +448,14 @@ P.news=()=>{const v=newsList();   // ข่าวแสดงทุกปีเ�
  ${i.imgs.length?`<div class="gal">${i.imgs.map(s=>`<img src="${s}" alt="" onclick="zoom(this.src)">`).join('')}</div>`:''}
  ${owner?`<div class="noprint" style="margin-top:8px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button> <button class="btn ghost sm" onclick="delItem(${i.id})">ลบ</button></div>`:''}</div>`).join('')||'<div class="meta">ยังไม่มีข่าว</div>'}`};
 
-P.research=()=>{const v=items.filter(i=>(owner||i.pub)&&i.type==='วิจัย').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+P.research=()=>{const v=items.filter(i=>(owner||evaluator||i.pub)&&i.type==='วิจัย').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
  return `<h2>งานวิจัย</h2><div class="meta" style="margin-bottom:10px">วิจัยในชั้นเรียนและงานพัฒนาการเรียนรู้ทุกปี (${v.length} เรื่อง)</div>
  ${v.map(i=>`<div class="card item">${i.imgs[0]?`<img src="${i.imgs[0]}" onclick="zoom(this.src)" alt="">`:'<div style="font-size:34px;flex:none">📘</div>'}
  <div style="flex:1"><div class="meta">${i.date?'ปีการศึกษา '+acYear(i.date):'ยังไม่ระบุวันที่'}</div><div class="t">${esc(i.title)}</div>
  ${clip(linkify(i.detail),i.detail,'')}
  ${(i.detail||'').match(/https?:\/\/\S+/)?`<a class="btn sm" style="display:inline-block;text-decoration:none;margin:4px 0" href="${esc(i.detail.match(/https?:\/\/\S+/)[0])}" target="_blank" rel="noopener">📖 อ่านงานวิจัย</a><br>`:''}
  ${i.ind.map(k=>`<span class="tag" title="${esc(IND_NAME[k]||'')}">${esc(k)} ${esc(IND_NAME[k]||'')}</span>`).join('')}
- ${(i.docs||[]).map(d=>`<a class="tag" href="${esc(d.u)}" target="_blank" rel="noopener">${owner&&!i.pubDocs?'🔒':'📎'} ${esc(d.n)}</a>`).join('')}
+ ${fileLinks(i)}
  ${owner?`<div class="noprint" style="margin-top:6px"><button class="btn ghost sm" onclick="editItem(${i.id})">แก้ไข</button></div>`:''}</div></div>`).join('')||'<div class="meta">ยังไม่มีงานวิจัย</div>'}`};
 
 P.act=()=>{let v=visible().filter(i=>i.type==='กิจกรรม'&&i.date);
@@ -463,10 +471,11 @@ P.eval=()=>{const rs=uniq(items.filter(i=>i.date).map(i=>round(i.date))).sort().
  if(!rs.includes(cur))rs.unshift(cur);
  const v=items.filter(i=>round(i.date)===cur).sort((a,b)=>a.date.localeCompare(b.date));
  let n=0,miss=0;
- const body=IND.map(g=>`<h3>${g.g}</h3><div class="tw"><table>${g.items.map(([k,name])=>{const l=v.filter(i=>i.ind.includes(k));if(!l.length)miss++;
-  return `<tr><th style="width:38%">${k} ${name}</th><td>${l.length?l.map(i=>`<div class="ok">✓ ${esc(i.title)} <span class="meta">(${thDate(i.date)})</span></div>`).join(''):'<span class="miss">⚠ ยังไม่มีหลักฐาน</span>'}</td></tr>`}).join('')}</table></div>`).join('');
+ const body=IND.map((g,gi)=>`<h3 id="side${gi}" class="sidehead">${g.g}</h3><div class="tw"><table>${g.items.map(([k,name])=>{const l=v.filter(i=>i.ind.includes(k));if(!l.length)miss++;
+  return `<tr><th style="width:38%">${k} ${name}</th><td>${l.length?l.map(i=>`<div class="ok">✓ ${esc(i.title)} <span class="meta">(${thDate(i.date)})</span> ${fileLinks(i)}${i.imgs&&i.imgs.length?` <a class="tag" href="#" onclick="zoom('${i.imgs[0]}');return false">🖼️ ${i.imgs.length} รูป</a>`:''}</div>`).join(''):'<span class="miss">⚠ ยังไม่มีหลักฐาน</span>'}</td></tr>`}).join('')}</table></div>`).join('');
  const pics=v.flatMap(i=>i.imgs.map(s=>({s,t:i.title})));
  return `<h2>สรุปหลักฐานตามรอบประเมิน</h2>
+ <div class="sidejump noprint">${IND.map((g,gi)=>`<button class="btn ghost sm" onclick="document.getElementById('side${gi}').scrollIntoView({behavior:'smooth',block:'start'})">${['ด้านที่ 1 การจัดการเรียนรู้','ด้านที่ 2 ส่งเสริมและสนับสนุน','ด้านที่ 3 พัฒนาตนเอง','อื่น ๆ (ท้าทาย · อ2 · อ3)'][gi]||g.g}</button>`).join('')}</div>
  <div class="filters noprint"><select id="er" onchange="render()">${rs.map(k=>`<option value="${k}"${k===cur?' selected':''}>${roundLabel(k)}</option>`).join('')}</select>
  <button class="btn ghost" onclick="print()">พิมพ์ / บันทึก PDF</button></div>
  <div class="card"><b>${roundLabel(cur)}</b> · ผลงาน ${v.length} รายการ · ${miss?`<span class="miss">ขาดหลักฐาน ${miss} หัวข้อ</span>`:'<span class="ok">มีหลักฐานครบทุกหัวข้อ</span>'}</div>
@@ -487,13 +496,14 @@ P.add=()=>{const e=editing||{title:'',type:'อบรม',date:new Date().toISOS
  <label class="full">หน่วยงานผู้จัด (เลือกหรือพิมพ์เอง)<input name="org" list="lo" value="${esc(e.org)}"><datalist id="lo">${opts(ORGS)}</datalist></label>
  <div class="full"><div class="meta">ตัวชี้วัด (เลือกได้หลายข้อ)</div><div class="inds">${IND.map(g=>`<b>${g.g}</b>`+g.items.map(([k,n])=>`<label><input type="checkbox" name="ind" value="${k}"${e.ind.includes(k)?' checked':''}> ${k} ${n}</label>`).join('')).join('')}</div></div>
  <label class="full">รายละเอียด / ลิงก์ไฟล์ใหญ่ใน OneDrive<textarea name="detail" rows="3">${esc(e.detail)}</textarea></label>
+ <label class="full">📄 ลิงก์คำสั่ง (คัดลอกลิงก์จากเว็บคำสั่งของโรงเรียนมาวาง)<input type="url" name="orderUrl" placeholder="https://..." value="${esc(e.orderUrl||'')}"></label>
  <label class="full">แนบรูปหรือเอกสาร PDF/Word/PowerPoint (เลือกหลายไฟล์ได้)<input type="file" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" multiple onchange="addPics(this)"></label>
  <div class="full" id="thumbs"></div>
  <div class="full vis"><div class="meta" style="margin-bottom:6px">ผู้เยี่ยมชมเห็นอะไรได้บ้าง</div>
   <label class="tog"><input type="checkbox" name="pub"${e.pub?' checked':''} onchange="visSync()"><span>🌐 แสดงรายการนี้</span></label>
   <label class="tog"><input type="checkbox" name="pubImgs"${e.pubImgs!==false?' checked':''}><span>🖼️ ให้เห็นรูป</span></label>
-  <label class="tog"><input type="checkbox" name="pubDocs"${e.pubDocs?' checked':''}><span>📎 ให้เห็นไฟล์แนบ</span></label>
-  <div class="meta" style="margin-top:6px">ไฟล์แนบ (PDF, Word, PowerPoint) ซ่อนไว้เป็นค่าเริ่มต้น ครูเห็นเสมอเมื่อเข้าโหมดเจ้าของ</div></div>
+  <label class="tog"><input type="checkbox" name="pubDocs"${e.pubDocs?' checked':''}><span>📎 ให้เห็นไฟล์แนบ / คำสั่ง</span></label>
+  <div class="meta" style="margin-top:6px">ไฟล์แนบและลิงก์คำสั่งซ่อนจากผู้เยี่ยมชมเป็นค่าเริ่มต้น · ครูและผู้ประเมินเห็นเสมอ</div></div>
  <div class="full meta" style="margin-top:-6px">💡 รูปที่เพจหรือเว็บโรงเรียนเผยแพร่แล้วแสดงได้ตามปกติ · ถ้าเป็นรูปที่ถ่ายเองและเห็นหน้านักเรียนชัด เช่น เยี่ยมบ้าน ควรเอาเครื่องหมายถูกออก (PDPA)</div>
  <div class="full"><button class="btn">บันทึก</button> ${editing?'<button type="button" class="btn ghost" onclick="go(\'home\')">ยกเลิก</button>':''}</div>
  </form></div>`};
@@ -510,7 +520,7 @@ function addPics(inp){[...inp.files].forEach(f=>{const r=new FileReader();
 async function saveItem(ev){ev.preventDefault();const fd=new FormData(ev.target),btn=ev.target.querySelector('button.btn');
  const o={id:editing?editing.id:Date.now(),title:fd.get('title').trim(),type:fd.get('type'),date:fd.get('date'),ind:fd.getAll('ind'),
   hours:fd.get('type')==='อบรม'?(+fd.get('hours')||0):0,detail:fd.get('detail').trim(),group:fd.get('group'),ptype:fd.get('ptype'),
-  place:fd.get('place').trim(),org:fd.get('org').trim(),imgs:pending,pub:!!fd.get('pub'),pubImgs:!!fd.get('pubImgs'),pubDocs:!!fd.get('pubDocs')};
+  place:fd.get('place').trim(),org:fd.get('org').trim(),imgs:pending,pub:!!fd.get('pub'),pubImgs:!!fd.get('pubImgs'),pubDocs:!!fd.get('pubDocs'),orderUrl:(fd.get('orderUrl')||'').trim()};
  try{
   if(API_URL){
    btn.disabled=true;const total=pending.filter(s=>s.startsWith('data:')).length+pendingDocs.filter(d=>d.data).length;let n=0;
@@ -574,10 +584,11 @@ async function bulkImport(inp){const log=t=>{const e=document.getElementById('bu
  catch(e){log('บันทึกไม่สำเร็จ: '+e.message)}}
 
 function render(){readFilters();drawNav();const m=document.getElementById('main');
- m.innerHTML=(busy?`<div class="banner">${busy}</div>`:'')+(['train','meet','award','act','work'].includes(page)?yearBar():'')+P[page]();
+ m.innerHTML=(evaluator?'<div class="banner noprint">👀 โหมดผู้ประเมิน · ดูได้อย่างเดียว · เห็นทุกรายการ รูป ไฟล์แนบ และคำสั่ง</div>':'')+(busy?`<div class="banner">${busy}</div>`:'')+(['train','meet','award','act','work'].includes(page)?yearBar():'')+P[page]();
  if(page==='add'){drawThumbs();hoursShow(document.querySelector('[name=type]').value);visSync()}
  m.querySelectorAll('.card,.award,.stat,.hero,h2').forEach((e,i)=>{e.style.setProperty('--d',Math.min(i,14)*60+'ms');e.classList.add('rv')});
- countUp();typeLoop();slStart();clipCheck();setTimeout(clipCheck,700)}
+ countUp();typeLoop();slStart();clipCheck();setTimeout(clipCheck,700);
+ let fb=document.getElementById('backrep');if(evaluator&&page!=='eval'){if(!fb){fb=document.createElement('button');fb.id='backrep';fb.className='btn noprint';fb.textContent='📋 กลับหน้ารายงาน';fb.onclick=()=>go('eval');document.body.appendChild(fb)}}else if(fb)fb.remove()}
 
 /* ---------- ลูกเล่นเคลื่อนไหว ---------- */
 const CALM=matchMedia('(prefers-reduced-motion: reduce)').matches;
